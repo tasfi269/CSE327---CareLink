@@ -115,3 +115,32 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Google Gemini API Key
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+
+# Console Logging Configuration for real-time terminal output
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '%(asctime)s [%(levelname)s] %(message)s',
+            'datefmt': '%H:%M:%S',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'ai_assistant': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
