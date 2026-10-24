@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareLink - AI Health Assistant Chat Management Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            navy: '#0D1638',
+                            teal: '#18A795',
+                            darkTeal: '#13897A',
+                            mint: '#F2FAF8',
+                            cardBg: '#FFFFFF',
+                            slate: '#F8FAFC'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F3F7F6; }
+        .teal-gradient { background: linear-gradient(135deg, #0D1638 0%, #13897A 100%); }
+        .card-shadow { box-shadow: 0 4px 20px -2px rgba(13, 22, 56, 0.06), 0 2px 6px -1px rgba(13, 22, 56, 0.04); }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3 flex items-center justify-between">
+            <!-- Brand & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-[#18A795] flex items-center justify-center text-white text-xl shadow-md shadow-teal-500/20">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xl font-extrabold tracking-tight text-[#0D1638]">CareLink</span>
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-[#13897A] border border-teal-200">v2.7 AI Health Assistant</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium">Chat Management & Analytics Portal</p>
+                </div>
+            </div>
+
+            <!-- Header Quick Actions -->
+            <div class="flex items-center space-x-3">
+                <div class="hidden sm:flex items-center space-x-2 text-xs bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-slate-600 font-medium">PostgreSQL: <strong class="text-slate-800">{{ db_name }}</strong></span>
+                </div>
+                <a href="/admin/" class="inline-flex items-center space-x-1.5 bg-[#0D1638] hover:bg-[#152355] text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Django Admin</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Flash Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="p-4 rounded-xl text-sm font-medium flex items-center justify-between {% if message.tags == 'success' %}bg-emerald-50 text-emerald-800 border border-emerald-200{% else %}bg-amber-50 text-amber-800 border border-amber-200{% endif %}">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Hero Header & Filter Controls -->
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 card-shadow flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-[#0D1638]">AI Health Consultations & Chat Overview</h1>
+                <p class="text-sm text-slate-500 mt-1">Real-time triage data, patient histories, prescription breakdowns, and medical specialty recommendations.</p>
+            </div>
+
+            <!-- Patient Filter & Search Form -->
+            <form method="GET" action="/dashboard/" class="flex flex-wrap items-center gap-3">
+                <div class="relative">
+                    <select name="patient" onchange="this.form.submit()" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-[#18A795] focus:border-[#18A795] block px-3 py-2 pr-8 font-medium">
+                        <option value="">All Patients ({{ all_patients|length }})</option>
+                        {% for p in all_patients %}
+                            <option value="{{ p }}" {% if selected_patient == p %}selected{% endif %}>Patient: {{ p }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="relative">
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search queries/advice..." class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-[#18A795] focus:border-[#18A795] block pl-9 pr-3 py-2 w-48 sm:w-60">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                    </div>
+                </div>
+
+                <button type="submit" class="bg-[#18A795] hover:bg-[#13897A] text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center space-x-1.5 shadow-sm">
+                    <i class="fa-solid fa-filter text-xs"></i>
+                    <span>Filter</span>
+                </button>
+
+                {% if selected_patient or search_query %}
+                    <a href="/dashboard/" class="text-xs text-rose-600 hover:text-rose-700 font-semibold underline self-center">Reset</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- KPI Metrics Grid (5 Cards) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+            <!-- Card 1: Total Consultations -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 card-shadow relative overflow-hidden group hover:border-[#18A795] transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Sessions</span>
+                    <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold">
+                        <i class="fa-regular fa-comments"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-3xl font-extrabold text-[#0D1638]">{{ total_sessions }}</span>
+                    <p class="text-xs text-slate-500 mt-1">Total active conversations</p>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+            </div>
+
+            <!-- Card 2: Total Messages -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 card-shadow relative overflow-hidden group hover:border-[#18A795] transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Messages</span>
+                    <div class="w-9 h-9 rounded-xl bg-teal-50 text-[#18A795] flex items-center justify-center text-sm font-bold">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-3xl font-extrabold text-[#0D1638]">{{ total_messages }}</span>
+                    <p class="text-xs text-slate-500 mt-1">Patient & AI interactions</p>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#18A795] to-teal-400"></div>
+            </div>
+
+            <!-- Card 3: Registered Patients -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 card-shadow relative overflow-hidden group hover:border-[#18A795] transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Patients</span>
+                    <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-sm font-bold">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-3xl font-extrabold text-[#0D1638]">{{ total_patients }}</span>
+                    <p class="text-xs text-slate-500 mt-1">Unique user profiles</p>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
+            </div>
+
+            <!-- Card 4: Prescriptions Analyzed -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 card-shadow relative overflow-hidden group hover:border-[#18A795] transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Prescriptions</span>
+                    <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-sm font-bold">
+                        <i class="fa-solid fa-file-prescription"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-3xl font-extrabold text-[#0D1638]">{{ prescriptions_count }}</span>
+                    <p class="text-xs text-slate-500 mt-1">Medicine dosages parsed</p>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500"></div>
+            </div>
+
+            <!-- Card 5: Doctor Referrals -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 card-shadow relative overflow-hidden group hover:border-[#18A795] transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Doctor Referrals</span>
+                    <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm font-bold">
+                        <i class="fa-solid fa-user-doctor"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-3xl font-extrabold text-[#0D1638]">{{ doctor_recs_count }}</span>
+                    <p class="text-xs text-slate-500 mt-1">Specialists recommended</p>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+            </div>
+        </div>
+
+        <!-- Middle Section: Specialty Breakdown Chart & Patients List -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left 2 Cols: Doctor Specialty Distribution Chart -->
+            <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 card-shadow">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-[#0D1638]">Medical Specialty Triage Breakdown</h2>
+                        <p class="text-xs text-slate-500">Distribution of specialist recommendations made by Gemini AI</p>
+                    </div>
+                    <span class="text-xs font-semibold bg-teal-50 text-[#13897A] px-2.5 py-1 rounded-full border border-teal-200">
+                        <i class="fa-solid fa-chart-pie mr-1"></i> Live Analytics
+                    </span>
+                </div>
+                <div class="h-64 flex items-center justify-center">
+                    <canvas id="doctorSpecialtyChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Right 1 Col: Quick Patient Actions / Clear History -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 card-shadow flex flex-col justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-[#0D1638] mb-1">Patient History Management</h2>
+                    <p class="text-xs text-slate-500 mb-4">Manage or reset patient-specific chat sessions.</p>
+
+                    <div class="space-y-3">
+                        {% for p in all_patients %}
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 rounded-full bg-[#0D1638] text-white flex items-center justify-center text-xs font-bold">
+                                    {{ p|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">{{ p }}</p>
+                                    <a href="/dashboard/?patient={{ p }}" class="text-xs text-[#18A795] hover:underline font-medium">View Conversations</a>
+                                </div>
+                            </div>
+
+                            <!-- Clear Patient History Form -->
+                            <form method="POST" action="/dashboard/" onsubmit="return confirm('Are you sure you want to delete all chat history for patient {{ p }}?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_user_history">
+                                <input type="hidden" name="user_id" value="{{ p }}">
+                                <button type="submit" class="text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-lg transition-colors" title="Delete History for {{ p }}">
+                                    <i class="fa-regular fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </div>
+                        {% empty %}
+                        <p class="text-xs text-slate-400 py-4 text-center">No patients found in database.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span>Database: <strong>PostgreSQL 18</strong></span>
+                    <a href="/admin/ai_assistant/chatmessage/" class="text-[#18A795] font-semibold hover:underline">Full Database Table ➔</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Section: Live Conversation Stream Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 card-shadow overflow-hidden">
+            <div class="p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-lg font-bold text-[#0D1638]">Live Consultation Stream</h2>
+                    <p class="text-xs text-slate-500">Recent user inquiries and AI diagnostic responses (Last 30 messages)</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="window.location.reload();" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center space-x-1">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <tr>
+                            <th class="py-3.5 px-4 font-semibold">Time</th>
+                            <th class="py-3.5 px-4 font-semibold">Patient</th>
+                            <th class="py-3.5 px-4 font-semibold">Role</th>
+                            <th class="py-3.5 px-4 font-semibold">Message Preview</th>
+                            <th class="py-3.5 px-4 font-semibold">Doctor Referral</th>
+                            <th class="py-3.5 px-4 font-semibold">Prescription Data</th>
+                            <th class="py-3.5 px-4 font-semibold text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for msg in recent_messages %}
+                        <tr class="hover:bg-slate-50/80 transition-colors">
+                            <!-- Time -->
+                            <td class="py-3.5 px-4 text-xs text-slate-400 whitespace-nowrap">
+                                {{ msg.created_at|date:"M d, H:i" }}
+                            </td>
+
+                            <!-- Patient -->
+                            <td class="py-3.5 px-4 whitespace-nowrap">
+                                <span class="font-bold text-slate-800 text-xs bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                                    {{ msg.user_id }}
+                                </span>
+                            </td>
+
+                            <!-- Role -->
+                            <td class="py-3.5 px-4 whitespace-nowrap">
+                                {% if msg.role == 'model' %}
+                                    <span class="inline-flex items-center space-x-1 bg-teal-50 text-[#13897A] text-xs font-semibold px-2 py-0.5 rounded-full border border-teal-200">
+                                        <i class="fa-solid fa-robot text-[10px]"></i>
+                                        <span>AI Assistant</span>
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center space-x-1 bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full border border-blue-200">
+                                        <i class="fa-solid fa-user text-[10px]"></i>
+                                        <span>Patient</span>
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Message Preview -->
+                            <td class="py-3.5 px-4 max-w-xs md:max-w-md truncate text-xs text-slate-700">
+                                {{ msg.text }}
+                            </td>
+
+                            <!-- Doctor Referral -->
+                            <td class="py-3.5 px-4 whitespace-nowrap">
+                                {% if msg.doctor_recommendation %}
+                                    <span class="inline-flex items-center space-x-1 bg-emerald-50 text-emerald-800 text-xs font-bold px-2 py-1 rounded-md border border-emerald-200">
+                                        <i class="fa-solid fa-stethoscope text-emerald-600"></i>
+                                        <span>{{ msg.doctor_recommendation }}</span>
+                                    </span>
+                                {% else %}
+                                    <span class="text-xs text-slate-400">—</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Prescription Medicines -->
+                            <td class="py-3.5 px-4 whitespace-nowrap">
+                                {% if msg.medicines %}
+                                    <button onclick="showMedicinesModal('{{ msg.id }}', {{ msg.medicines|escapejs }})" class="text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-1 rounded-md hover:bg-amber-100 transition-colors inline-flex items-center space-x-1">
+                                        <i class="fa-solid fa-pills text-amber-600"></i>
+                                        <span>{{ msg.medicines|length }} Medicines</span>
+                                    </button>
+                                {% elif msg.attachment %}
+                                    <span class="text-xs text-blue-600 font-medium"><i class="fa-solid fa-paperclip"></i> Image Attached</span>
+                                {% else %}
+                                    <span class="text-xs text-slate-400">—</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Actions -->
+                            <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                                <form method="POST" action="/dashboard/" class="inline" onsubmit="return confirm('Delete this message?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_message">
+                                    <input type="hidden" name="message_id" value="{{ msg.id }}">
+                                    <button type="submit" class="text-slate-400 hover:text-rose-600 text-xs p-1" title="Delete Message">
+                                        <i class="fa-regular fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="py-8 text-center text-slate-400 text-xs">
+                                No chat records found matching criteria.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Medicine Breakdown Modal -->
+    <div id="medicinesModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 card-shadow border border-slate-200">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-prescription-bottle-medical text-[#18A795] text-lg"></i>
+                    <h3 class="text-base font-bold text-[#0D1638]">Extracted Prescription Breakdown</h3>
+                </div>
+                <button onclick="closeMedicinesModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="medicinesContent" class="py-4 space-y-3 text-xs">
+                <!-- Injected via JavaScript -->
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex justify-end">
+                <button onclick="closeMedicinesModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js Initialization & Modal Script -->
+    <script>
+        const doctorLabels = JSON.parse('{{ doctor_labels|escapejs }}');
+        const doctorCounts = JSON.parse('{{ doctor_counts|escapejs }}');
+
+        const ctx = document.getElementById('doctorSpecialtyChart').getContext('2d');
+        if (doctorLabels.length > 0) {
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: doctorLabels,
+                    datasets: [{
+                        data: doctorCounts,
+                        backgroundColor: [
+                            '#18A795',
+                            '#0D1638',
+                            '#3B82F6',
+                            '#10B981',
+                            '#F59E0B',
+                            '#8B5CF6'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#FFFFFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 12,
+                                font: {
+                                    family: "'Plus Jakarta Sans', sans-serif",
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            // Placeholder when no doctor recommendations yet
+            ctx.font = "14px Plus Jakarta Sans";
+            ctx.fillStyle = "#94A3B8";
+            ctx.textAlign = "center";
+            ctx.fillText("No doctor specialty recommendations recorded yet", 200, 100);
+        }
+
+        // Modal Logic
+        function showMedicinesModal(id, medicines) {
+            const container = document.getElementById('medicinesContent');
+            container.innerHTML = '';
+            if (medicines && medicines.length > 0) {
+                medicines.forEach(m => {
+                    const card = document.createElement('div');
+                    card.className = 'p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1';
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-[#0D1638] text-sm">${m.name || 'Medicine'}</span>
+                            <span class="bg-teal-50 text-[#13897A] font-semibold px-2 py-0.5 rounded text-[11px] border border-teal-200">${m.dosage || ''}</span>
+                        </div>
+                        <p class="text-slate-500"><strong>Purpose:</strong> ${m.purpose || 'N/A'}</p>
+                        <p class="text-slate-500"><strong>Frequency:</strong> ${m.frequency || 'N/A'} • <strong>Timing:</strong> ${m.meal_timing || 'N/A'}</p>
+                    `;
+                    container.appendChild(card);
+                });
+            } else {
+                container.innerHTML = '<p class="text-slate-400">No structured medicine details found.</p>';
+            }
+            document.getElementById('medicinesModal').classList.remove('hidden');
+        }
+
+        function closeMedicinesModal() {
+            document.getElementById('medicinesModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

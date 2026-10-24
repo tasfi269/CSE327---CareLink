@@ -1,3 +1,8 @@
+import json
+from django.shortcuts import render, redirect
+from django.db.models import Count
+from django.contrib import messages as django_messages
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -91,3 +96,75 @@ class ChatHistoryView(APIView):
             {'message': f'Chat history for user {user_id} deleted successfully.', 'deleted_count': deleted_count},
             status=status.HTTP_200_OK
         )
+
+
+class ChatDashboardView(APIView):
+    """Visual Dashboard for AI Health Assistant Chat Management"""
+
+    def get(self, request, *args, **kwargs):
+        selected_patient = request.GET.get('patient', '').strip()
+        search_query = request.GET.get('q', '').strip()
+
+        messages_qs = ChatMessage.objects.all().order_by('-created_at')
+        sessions_qs = ChatSession.objects.all().order_by('-updated_at')
+
+        # Get list of unique patients
+        all_patients = list(ChatMessage.objects.values_list('user_id', flat=True).distinct())
+
+        if selected_patient:
+            messages_qs = messages_qs.filter(user_id=selected_patient)
+            sessions_qs = sessions_qs.filter(user_id=selected_patient)
+
+        if search_query:
+            messages_qs = messages_qs.filter(text__icontains=search_query)
+
+        # Overview statistics
+        total_sessions = sessions_qs.count()
+        total_messages = messages_qs.count()
+        total_patients = len(all_patients)
+        prescriptions_count = messages_qs.filter(medicines__isnull=False).count()
+        doctor_recs_count = messages_qs.filter(doctor_recommendation__isnull=False).count()
+
+        # Doctor Specialty Distribution for Chart
+        doctor_distribution = (
+            messages_qs.filter(doctor_recommendation__isnull=False)
+            .values('doctor_recommendation')
+            .annotate(total=Count('doctor_recommendation'))
+            .order_by('-total')
+        )
+        doctor_labels = [d['doctor_recommendation'] for d in doctor_distribution]
+        doctor_counts = [d['total'] for d in doctor_distribution]
+
+        recent_messages = list(messages_qs[:30])
+        db_name = settings.DATABASES['default'].get('NAME', 'carelink_cb_db')
+
+        context = {
+            'total_sessions': total_sessions,
+            'total_messages': total_messages,
+            'total_patients': total_patients,
+            'prescriptions_count': prescriptions_count,
+            'doctor_recs_count': doctor_recs_count,
+            'all_patients': all_patients,
+            'selected_patient': selected_patient,
+            'search_query': search_query,
+            'doctor_labels': json.dumps(doctor_labels),
+            'doctor_counts': json.dumps(doctor_counts),
+            'recent_messages': recent_messages,
+            'db_name': db_name,
+        }
+        return render(request, 'dashboard.html', context)
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get('action')
+        if action == 'delete_user_history':
+            uid = request.POST.get('user_id')
+            if uid:
+                ChatMessage.objects.filter(user_id=uid).delete()
+                ChatSession.objects.filter(user_id=uid).delete()
+                django_messages.success(request, f"Successfully cleared chat history for {uid}.")
+        elif action == 'delete_message':
+            mid = request.POST.get('message_id')
+            if mid:
+                ChatMessage.objects.filter(id=mid).delete()
+                django_messages.success(request, "Message deleted successfully.")
+        return redirect('chat_dashboard')

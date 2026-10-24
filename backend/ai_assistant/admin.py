@@ -1,9 +1,10 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from .models import ChatSession, ChatMessage
 
 # Customize Admin Portal Branding
-admin.site.site_header = "CareLink Healthcare Administration"
+admin.site.site_header = mark_safe('CareLink Healthcare Administration &nbsp;|&nbsp; <a href="/dashboard/" style="color: #18A795; font-size: 13px; text-decoration: underline; font-weight: normal;">📊 Open Chat Management Dashboard</a>')
 admin.site.site_title = "CareLink Admin Portal"
 admin.site.index_title = "CareLink Digital Healthcare Platform Management"
 
