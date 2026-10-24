@@ -269,7 +269,7 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Engine: Google Gemini 3.8 Flash',
+                            'Engine: Google Gemini 3.1 Flash',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -428,7 +428,7 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
                           const SizedBox(width: 5),
                           const Flexible(
                             child: Text(
-                              'Online • Gemini 3.8 Flash',
+                              'Online • Gemini 3.1 Flash',
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 11,

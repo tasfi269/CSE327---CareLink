@@ -42,7 +42,7 @@ class AIChatView(APIView):
             attachment=image_file,
         )
 
-        # 2. Call AI generation service (Gemini 3.8 Flash)
+        # 2. Call AI generation service (Gemini 3.1 Flash)
         ai_result = generate_ai_response(
             query_text=query_text,
             image_file=image_file,
