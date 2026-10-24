@@ -70,11 +70,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'carelink_backend.wsgi.application'
 
 # Database
-# Using SQLite for local development, ready to switch to PostgreSQL when team integrates
+# Configured for PostgreSQL (carelink_cb_db), credentials managed via .env
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'carelink_cb_db'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
