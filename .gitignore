@@ -1,0 +1,41 @@
+# --- Security & Secrets ---
+.env
+*.env
+backend/.env
+google-services.json
+firebase_options.dart
+
+# --- Python & Django ---
+__pycache__/
+*.py[cod]
+*$py.class
+backend/venv/
+venv/
+env/
+*.sqlite3
+backend/media/
+backend/staticfiles/
+
+# --- Flutter & Dart ---
+.dart_tool/
+.packages
+build/
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+
+# --- IDEs & Editors ---
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+frontend/*.iml
+frontend/android/*.iml
+
+# --- Operating System ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini

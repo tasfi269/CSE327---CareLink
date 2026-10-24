@@ -1,0 +1,7 @@
+CareLink brand colors
+Navy ("Care", ring):   #0D1638
+Teal (heart icon):      #18A795
+Teal dark ("Link"):     #13897A
+Wordmark font: Plus Jakarta Sans, ExtraBold-ish (wght 760), converted to outlines in the SVGs
+Use the SVG files wherever possible (web, Figma, Flutter, React). PNGs are transparent.
+The -white versions are for dark backgrounds.
