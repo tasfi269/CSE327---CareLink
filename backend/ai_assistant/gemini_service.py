@@ -33,6 +33,13 @@ Your goals:
 }
 """
 
+CANDIDATE_MODELS = [
+    'gemini-3.1-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-3.5-flash',
+    'gemini-3.8-flash',
+]
+
 def generate_ai_response(query_text, image_file=None, history=None):
     api_key = getattr(settings, 'GEMINI_API_KEY', '')
 
@@ -41,27 +48,46 @@ def generate_ai_response(query_text, image_file=None, history=None):
 
     try:
         from google import genai
-        client = genai.Client(api_key=api_key)
+        from google.genai import types
+
+        # Strict 10-second timeout (minimum allowed by Google API)
+        client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=10000)
+        )
 
         contents = []
         if image_file:
             pil_img = Image.open(image_file)
             contents.append(pil_img)
 
-        prompt_str = f"User says: {query_text}\nPlease reply adhering to the required JSON schema."
+        prompt_str = f"User says: {query_text}\nPlease reply adhering strictly to the required JSON schema."
         contents.append(prompt_str)
 
-        response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=contents,
-            config={
-                'system_instruction': SYSTEM_INSTRUCTION,
-                'response_mime_type': 'application/json',
-            }
-        )
-        return json.loads(response.text.strip())
+        last_error = None
+        for model_name in CANDIDATE_MODELS:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config={
+                        'system_instruction': SYSTEM_INSTRUCTION,
+                        'response_mime_type': 'application/json',
+                    }
+                )
+                parsed = json.loads(response.text.strip())
+                logger.info(f"Successfully generated response with model: {model_name}")
+                return parsed
+            except Exception as model_err:
+                last_error = model_err
+                logger.warning(f"Model {model_name} failed or timed out: {model_err}. Trying next candidate...")
+                continue
+
+        logger.warning(f"All live Gemini models failed. Falling back to intelligent healthcare simulation. Error: {last_error}")
+        return _mock_fallback(query_text, image_file, error_note=str(last_error))
+
     except Exception as e:
-        logger.warning(f"Live Gemini API call failed: {e}. Falling back to intelligent healthcare simulation.")
+        logger.warning(f"Live Gemini initialization failed: {e}. Falling back to intelligent healthcare simulation.")
         return _mock_fallback(query_text, image_file, error_note=str(e))
 
 def _mock_fallback(query_text, image_file=None, error_note=None):
@@ -99,35 +125,44 @@ def _mock_fallback(query_text, image_file=None, error_note=None):
 
     if "check" in q and "symptom" in q:
         return {
-            "reply": "I'm ready to help evaluate your symptoms! 🩺\n\nPlease share:\n• What main symptoms are you experiencing?\n• When did they begin?\n• Do you have any fever, severe pain, or breathing difficulty?",
-            "doctor_recommendation": None,
+            "reply": "I can help assess your symptoms. Please tell me what you are feeling (e.g. fever, headache, stomach ache, breathing issues) and how long it has been going on.",
+            "doctor_recommendation": "General Physician",
             "medicines": None
         }
 
-    # Scenario B: Symptom Guidance (Page 9 screenshot 2)
-    if "cough" in q or "fever" in q or "throat" in q:
+    if "fever" in q or "headache" in q:
         return {
-            "reply": "Your symptoms may be related to a respiratory infection such as a common cold, flu, or bronchitis. You should consider consulting a Pulmonologist (Chest Specialist) for proper evaluation.",
+            "reply": "For a mild fever and headache, ensure you get plenty of rest and drink fluids. If fever stays above 101°F or lasts more than 3 days, please consult a General Physician.",
+            "doctor_recommendation": "General Physician",
+            "medicines": None
+        }
+
+    # Scenario B: Symptom Checker & Specialist Recommendation (Page 9 screenshot 2)
+    # e.g., "continuous cough for 3 days" -> Pulmonologist (Chest Specialist)
+    if "cough" in q or "chest" in q or "breath" in q:
+        return {
+            "reply": "A persistent cough and chest discomfort can indicate a respiratory tract infection, bronchitis, or asthma. I recommend consulting a Pulmonologist (Chest Specialist) for a proper physical exam and chest X-ray if needed.",
             "doctor_recommendation": "Pulmonologist (Chest Specialist)",
             "medicines": None
         }
 
-    if "serious" in q or "danger" in q or "worse" in q:
+    if "skin" in q or "rash" in q or "itch" in q:
         return {
-            "reply": "In most cases, these symptoms are caused by mild infections and get better with rest and proper care. However, if the fever persists, you have difficulty breathing, or the symptoms worsen, please consult a doctor as soon as possible.",
-            "doctor_recommendation": None,
+            "reply": "Skin rashes and persistent itching may stem from allergic dermatitis, eczema, or a fungal infection. A Dermatologist can provide an accurate diagnosis.",
+            "doctor_recommendation": "Dermatologist (Skin Specialist)",
             "medicines": None
         }
 
-    if "department" in q or "specialist" in q or "which doctor" in q:
+    if "heart" in q or "palpitation" in q:
         return {
-            "reply": "Based on your symptoms, you should consult a Pulmonologist (Chest Specialist). If you also have ear or throat pain, an ENT Specialist may be appropriate.",
-            "doctor_recommendation": "Pulmonologist (Chest Specialist)",
+            "reply": "Heart palpitations or chest pressure should always be taken seriously. Please visit a Cardiologist promptly for an ECG evaluation.",
+            "doctor_recommendation": "Cardiologist (Heart Specialist)",
             "medicines": None
         }
 
+    # Default compassionate triage guidance
     return {
-        "reply": "Hello! I am your CareLink AI Health Assistant. I can help analyze your prescriptions, explain dosage instructions, check symptoms, or recommend medical specialists. How can I assist you today?",
-        "doctor_recommendation": None,
+        "reply": "Thank you for reaching out to CareLink AI Health Assistant. Based on your symptoms, I advise monitoring your condition closely, staying hydrated, and consulting a healthcare professional if symptoms persist.",
+        "doctor_recommendation": "General Physician",
         "medicines": None
     }
