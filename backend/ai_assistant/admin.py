@@ -67,7 +67,7 @@ class ChatMessageAdmin(admin.ModelAdmin):
 
     def role_badge(self, obj):
         if obj.role == 'model':
-            return format_html('<span style="color: #18A795; font-weight: bold;">🤖 AI Assistant</span>')
+            return mark_safe('<span style="color: #18A795; font-weight: bold;">🤖 AI Assistant</span>')
         return format_html('<span style="color: #0D1638; font-weight: bold;">👤 Patient ({})</span>', obj.user_id)
     role_badge.short_description = "Role"
 
