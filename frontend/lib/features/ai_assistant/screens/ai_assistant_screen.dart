@@ -407,18 +407,22 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            'AI Assistant',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
+                          const Flexible(
+                            child: Text(
+                              'AI Assistant',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 5),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
                               color: AppColors.userPillBg,
                               borderRadius: BorderRadius.circular(6),
@@ -479,12 +483,12 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.history_rounded, size: 16, color: AppColors.primary),
+                        Icon(Icons.history_rounded, size: 15, color: AppColors.primary),
                         SizedBox(width: 4),
                         Text(
                           'History',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: AppColors.primaryDark,
                           ),
@@ -493,33 +497,51 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
 
                 // NEW CHAT BUTTON
                 IconButton(
-                  icon: const Icon(Icons.add_comment_outlined, size: 20),
+                  icon: const Icon(Icons.add_comment_outlined, size: 19),
                   color: AppColors.primary,
                   tooltip: 'Start New Chat',
                   visualDensity: VisualDensity.compact,
                   onPressed: _startNewChat,
                 ),
 
-                // Profile Switcher
-                IconButton(
-                  icon: const Icon(Icons.people_outline_rounded, size: 20),
-                  color: AppColors.textSecondary,
-                  tooltip: 'Switch Patient Profile',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _showUserSwitcher,
-                ),
-
-                // Settings
-                IconButton(
-                  icon: const Icon(Icons.tune_rounded, size: 19),
-                  color: AppColors.textSecondary,
-                  tooltip: 'AI Configuration',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _showBackendSettings,
+                // MORE OPTIONS MENU (Profile Switcher & Settings)
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded, size: 20, color: AppColors.textSecondary),
+                  tooltip: 'More Options',
+                  padding: EdgeInsets.zero,
+                  onSelected: (val) {
+                    if (val == 'switch_patient') {
+                      _showUserSwitcher();
+                    } else if (val == 'settings') {
+                      _showBackendSettings();
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    PopupMenuItem(
+                      value: 'switch_patient',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.people_outline_rounded, size: 18, color: AppColors.primary),
+                          const SizedBox(width: 10),
+                          Text('Switch Patient Profile'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'settings',
+                      child: Row(
+                        children: [
+                          Icon(Icons.tune_rounded, size: 18, color: AppColors.textSecondary),
+                          SizedBox(width: 10),
+                          Text('AI Configuration'),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
