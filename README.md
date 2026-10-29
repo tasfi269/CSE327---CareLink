@@ -55,7 +55,7 @@ CSE327---CareLink/
 
 ---
 
-## 🚀 How to Run from Scratch (On Any Friend's Laptop)
+## 🚀 How to Run from Scratch (On Another Device)
 
 Follow these steps to set up and run the entire platform from a fresh clone:
 
