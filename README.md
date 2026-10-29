@@ -12,7 +12,7 @@
 
 - **Mobile Frontend:** Flutter (Dart) — Material 3 Design conforming to CareLink Brand Guidelines (Navy `#0D1638`, CareLink Teal `#18A795`, Dark Teal `#13897A`, Mint `#F2FAF8`).
 - **Backend API:** Django REST Framework (Python 3.10+) with CORS and MultiPart file handling.
-- **AI Core:** Google Gemini API (`models/gemini-3.1-flash-lite` with auto-failover to `gemini-flash-lite-latest` and `gemini-3.5-flash`), structured medical schema parsing, and prescription vision extraction.
+- **AI Core:** Google Gemini API (`models/gemini-3.1-flash-lite` with low-latency structured output, medical schema parsing, and prescription vision extraction).
 - **Database:** PostgreSQL 18 (`carelink_cb_db`) storing native `UUID` primary keys, patient user isolation, and structured `JSONB` prescription medicine items.
 - **Portals:**
   - 📊 **Chat Management Dashboard:** Real-time analytics, specialist breakdown charts, and patient history controls at `http://localhost:8000/`.
@@ -32,7 +32,7 @@ CSE327---CareLink/
 │   ├── lib/
 │   │   ├── core/constants/     # CareLink official brand colors & typography
 │   │   ├── features/ai_assistant/ # Chat screen, bubbles, suggestion chips, prescription cards
-│   │   ├── models/             # ChatMessage and MedicineItem data models
+│   │   ├── models/             # ChatMessage, MedicineItem, and ChatSessionSummary data models
 │   │   ├── services/           # AIChatService (Handles live Django API & offline fallback)
 │   │   └── widgets/            # CareLink AppBar, Bottom Navigation
 │   └── assets/images/          # Official CareLink logos, icons, and brand guidelines
@@ -88,7 +88,7 @@ cd CSE327---CareLink
    cd backend
    copy .env.example .env
    ```
-2. Open `backend/.env` in any text editor and configure:
+2. Open `backend/.env` in any text editor and configure your credentials:
    ```ini
    DJANGO_SECRET_KEY=carelink-cse327-secret-key-development-2026
    DEBUG=True
@@ -106,23 +106,72 @@ cd CSE327---CareLink
 
 ---
 
-### Step 4: Start the Backend Server (⚡ 1-Click Launch)
+### Step 4: Start the Backend Server
 
-You can launch the entire backend automatically using the batch script:
+You can choose either the **1-Click automated launch** or the **Manual step-by-step launch**:
 
-- **Option A (Double-Click):** In Windows File Explorer, simply **double-click** `start_server.bat` in the root folder.
-- **Option B (From Terminal):**
+#### ⚡ Method A: 1-Click Automated Launch (Recommended)
+You can launch the entire backend automatically using the zero-config batch script:
+- **Option 1 (Double-Click):** In Windows File Explorer, simply **double-click** `start_server.bat` in the root folder.
+- **Option 2 (Terminal):**
   ```cmd
   .\start_server.bat
   ```
+*What the script does automatically: detects or creates the virtual environment (`backend/venv`), installs `requirements.txt`, validates `.env`, applies PostgreSQL migrations, creates the default admin account, and starts the server on `0.0.0.0:8000`.*
 
-#### What the script does automatically:
-1. Detects or creates a Python virtual environment (`venv`).
-2. Installs required packages from `requirements.txt`.
-3. Validates `.env`.
-4. Applies all database migrations to PostgreSQL (`carelink_cb_db`).
-5. Ensures default admin credentials are created.
-6. Starts the server at `0.0.0.0:8000`.
+---
+
+#### 🛠️ Method B: Manual Launch Procedures (Step-by-Step)
+
+If you prefer to run the commands manually or are running on macOS/Linux:
+
+1. **Navigate to the backend directory:**
+   ```bash
+   cd backend
+   ```
+
+2. **Create a Python Virtual Environment:**
+   ```bash
+   python -m venv venv
+   ```
+
+3. **Activate the Virtual Environment:**
+   - **Windows (PowerShell):**
+     ```powershell
+     .\venv\Scripts\Activate.ps1
+     ```
+   - **Windows (Command Prompt):**
+     ```cmd
+     .\venv\Scripts\activate.bat
+     ```
+   - **macOS / Linux:**
+     ```bash
+     source venv/bin/activate
+     ```
+
+4. **Install Python Dependencies:**
+   ```bash
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+
+5. **Apply Database Migrations:**
+   ```bash
+   python manage.py makemigrations
+   python manage.py migrate
+   ```
+
+6. **Initialize the Default Admin Account (`admin` / `admin`):**
+   ```bash
+   python init_admin.py
+   ```
+   *(Or create a custom superuser via `python manage.py createsuperuser`)*
+
+7. **Run the Django Development Server:**
+   ```bash
+   python manage.py runserver 0.0.0.0:8000
+   ```
+   *The server will be live and accepting connections at `http://127.0.0.1:8000/`.*
 
 ---
 
@@ -158,16 +207,16 @@ flutter pub get
 | :--- | :--- | :--- | :--- |
 | **Chat Management Dashboard** | [http://localhost:8000/](http://localhost:8000/) | None (Public) | Real-time analytics, specialist charts, recent chat feed, and patient history manager |
 | **Django Admin Portal** | [http://localhost:8000/admin/](http://localhost:8000/admin/) | `admin` / `admin` | Full database management for sessions, messages, and users |
-| **AI Chat API Endpoint** | `http://localhost:8000/api/ai-chat/` | REST (POST) | Endpoint for mobile queries and prescription images |
-| **User History API** | `http://localhost:8000/api/ai-chat/history/?user_id=...` | REST (GET, DEL) | User-specific conversation retrieval and deletion |
+| **AI Chat API Endpoint** | `http://localhost:8000/api/ai-chat/` | REST (POST) | Endpoint for mobile queries, session continuity, and prescription images |
+| **Patient Sessions API** | `http://localhost:8000/api/ai-chat/sessions/?user_id=...` | REST (GET, DEL) | List and delete past consultation sessions for a patient |
+| **User History API** | `http://localhost:8000/api/ai-chat/history/?user_id=...` | REST (GET, DEL) | User and session-specific conversation retrieval and deletion |
 
 ---
-
 
 ## 🛠️ Troubleshooting
 
 - **Android Emulator cannot connect to backend:**
-  Make sure the Django server is running on `0.0.0.0:8000` (which `start_server.bat` does by default). Android emulator accesses the host PC using IP `10.0.2.2:8000`.
+  Make sure the Django server is running on `0.0.0.0:8000` (which `start_server.bat` and `runserver 0.0.0.0:8000` do by default). Android emulator accesses the host PC using IP `10.0.2.2:8000`.
 - **PostgreSQL Connection Error:**
   Ensure the PostgreSQL service is running in Windows Services (`services.msc`) and that your database password matches the `DB_PASSWORD` in `backend/.env`.
 - **Gemini API Key:**
