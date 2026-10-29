@@ -163,46 +163,6 @@ flutter pub get
 
 ---
 
-## 🎓 Faculty Demonstration Walkthrough
-
-When presenting this project to your faculty, demonstrate the following key features:
-
-### 1. Symptom Assessment & Medical Specialty Triage
-1. On the mobile screen, tap the quick prompt chip: *"I have had continuous cough for 3 days"*.
-2. Notice the AI analyzes the symptoms and recommends a specialist doctor: **`Pulmonologist (Chest Specialist)`**.
-3. In the chat bubble, notice the prominent teal badge highlighting the specialist recommendation.
-
-### 2. Multimodal Prescription Photo Breakdown
-1. Tap the camera icon in the chat input bar and select or take a photo of a doctor's prescription.
-2. The AI uses computer vision to parse the handwritten/printed medicine items.
-3. The response displays structured **Prescription Cards** showing:
-   - Medicine name and strength (e.g. *Paracetamol 500mg*, *Omeprazole 20mg*).
-   - Indication / Purpose (e.g. *Pain Reliever*, *Acid Reducer*).
-   - Frequency & Timing (e.g. *3 times daily*, *After meals*).
-
-### 3. User-Specific Chat History (User Isolation)
-1. In the top-right corner of the mobile app, tap the **Patient Switcher** button.
-2. Switch from **Tayasshuk Imam** to **Ayesha Rahman**.
-3. Observe that Ayesha's chat history is completely distinct and isolated from Tayasshuk's.
-4. Messages persist permanently in PostgreSQL even after closing and restarting the app.
-
-### 4. Real-Time Chat Management Dashboard
-1. Open your browser and go to [http://localhost:8000/](http://localhost:8000/).
-2. Show your faculty:
-   - Live KPI cards: Total Consultations, Total Messages, Unique Patients, Prescriptions Analyzed, and Doctor Referrals.
-   - Interactive **Medical Specialty Triage Breakdown** doughnut chart.
-   - Live conversation stream with **"View Medicines"** modal popup displaying the extracted JSON data.
-   - Patient history management with one-click user reset.
-
-### 5. PostgreSQL Database Inspection (pgAdmin 4)
-1. Open pgAdmin 4 ➔ `carelink_cb_db` ➔ `Schemas` ➔ `public` ➔ `Tables`.
-2. Open `ai_assistant_chatmessage` to show:
-   - Native `UUID` primary keys (`id`).
-   - Patient partition (`user_id`).
-   - Native PostgreSQL `JSONB` column (`medicines`) storing the parsed prescription data.
-3. Execute any query from [`backend/database/example_queries.sql`](backend/database/example_queries.sql) to show analytics and data retrieval.
-
----
 
 ## 🛠️ Troubleshooting
 
