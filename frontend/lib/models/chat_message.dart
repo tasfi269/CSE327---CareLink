@@ -46,6 +46,7 @@ class ChatMessage {
   final List<MedicineItem>? medicines;
   final String? doctorRecommendation;
   final bool isThinking;
+  final String? sessionId;
 
   ChatMessage({
     required this.id,
@@ -57,12 +58,14 @@ class ChatMessage {
     this.medicines,
     this.doctorRecommendation,
     this.isThinking = false,
+    this.sessionId,
   });
 
   factory ChatMessage.user({
     required String text,
     String? attachmentPath,
     bool isImage = false,
+    String? sessionId,
   }) {
     return ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -71,6 +74,7 @@ class ChatMessage {
       timestamp: DateTime.now(),
       attachmentPath: attachmentPath,
       isImageAttachment: isImage,
+      sessionId: sessionId,
     );
   }
 
@@ -79,6 +83,7 @@ class ChatMessage {
     List<MedicineItem>? medicines,
     String? doctorRecommendation,
     DateTime? timestamp,
+    String? sessionId,
   }) {
     return ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -87,16 +92,62 @@ class ChatMessage {
       timestamp: timestamp ?? DateTime.now(),
       medicines: medicines,
       doctorRecommendation: doctorRecommendation,
+      sessionId: sessionId,
     );
   }
 
-  factory ChatMessage.thinking() {
+  factory ChatMessage.thinking({String? sessionId}) {
     return ChatMessage(
       id: 'thinking',
       sender: MessageSender.assistant,
       text: '',
       timestamp: DateTime.now(),
       isThinking: true,
+      sessionId: sessionId,
+    );
+  }
+}
+
+class ChatSessionSummary {
+  final String id;
+  final String userId;
+  final String title;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final int messageCount;
+  final String lastMessage;
+  final bool hasPrescription;
+  final String? doctorRecommendation;
+
+  ChatSessionSummary({
+    required this.id,
+    required this.userId,
+    required this.title,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.messageCount,
+    this.lastMessage = '',
+    this.hasPrescription = false,
+    this.doctorRecommendation,
+  });
+
+  factory ChatSessionSummary.fromJson(Map<String, dynamic> json) {
+    return ChatSessionSummary(
+      id: json['id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Health Consultation',
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      messageCount: json['message_count'] is int
+          ? json['message_count']
+          : int.tryParse(json['message_count']?.toString() ?? '0') ?? 0,
+      lastMessage: json['last_message']?.toString() ?? '',
+      hasPrescription: json['has_prescription'] == true,
+      doctorRecommendation: json['doctor_recommendation']?.toString(),
     );
   }
 }

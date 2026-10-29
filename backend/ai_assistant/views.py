@@ -17,6 +17,7 @@ class AIChatView(APIView):
         query_text = request.data.get('query', '').strip()
         image_file = request.FILES.get('file', None)
         user_id = request.data.get('user_id', 'tayasshuk').strip()
+        session_id = request.data.get('session_id', None)
 
         if not query_text and not image_file:
             return Response(
@@ -25,13 +26,18 @@ class AIChatView(APIView):
             )
 
         # Get or create an active chat session for this user
-        session_id = request.data.get('session_id', None)
         session = None
         if session_id:
-            session = ChatSession.objects.filter(id=session_id, user_id=user_id).first()
+            try:
+                session = ChatSession.objects.filter(id=session_id, user_id=user_id).first()
+            except Exception:
+                session = None
+
         if not session:
-            title = query_text[:35] if query_text else 'Prescription Analysis'
+            title = (query_text[:40] + ('...' if len(query_text) > 40 else '')) if query_text else 'Prescription Analysis'
             session = ChatSession.objects.create(user_id=user_id, title=title)
+        else:
+            session.save(update_fields=['updated_at'])
 
         # 1. Record patient message in DB under user_id
         user_msg = ChatMessage.objects.create(
@@ -62,22 +68,39 @@ class AIChatView(APIView):
             **ai_result,
             'message_id': str(bot_msg.id),
             'session_id': str(session.id),
+            'session_title': session.title,
             'user_id': user_id,
         }
         return Response(response_payload, status=status.HTTP_200_OK)
 
+
 class ChatHistoryView(APIView):
-    """Fetch or clear chat history for a particular user"""
+    """Fetch or clear chat history for a particular user, optionally filtered by session_id"""
 
     def get(self, request, *args, **kwargs):
         user_id = request.query_params.get('user_id', 'tayasshuk').strip()
-        messages = ChatMessage.objects.filter(user_id=user_id).order_by('created_at')
+        session_id = request.query_params.get('session_id', None)
+
+        messages_qs = ChatMessage.objects.filter(user_id=user_id)
+        session_title = None
+
+        if session_id:
+            try:
+                messages_qs = messages_qs.filter(session_id=session_id)
+                session = ChatSession.objects.filter(id=session_id, user_id=user_id).first()
+                if session:
+                    session_title = session.title
+            except Exception:
+                pass
+
+        messages = messages_qs.order_by('created_at')
 
         data = [
             {
                 'id': str(m.id),
                 'role': m.role,
                 'user_id': m.user_id,
+                'session_id': str(m.session_id) if m.session_id else None,
                 'text': m.text,
                 'medicines': m.medicines,
                 'doctor_recommendation': m.doctor_recommendation,
@@ -86,16 +109,79 @@ class ChatHistoryView(APIView):
             }
             for m in messages
         ]
-        return Response({'user_id': user_id, 'messages': data}, status=status.HTTP_200_OK)
+        return Response({
+            'user_id': user_id,
+            'session_id': session_id,
+            'session_title': session_title,
+            'messages': data
+        }, status=status.HTTP_200_OK)
 
     def delete(self, request, *args, **kwargs):
         user_id = request.query_params.get('user_id', 'tayasshuk').strip()
+        session_id = request.query_params.get('session_id', None)
+
+        if session_id:
+            deleted_count, _ = ChatMessage.objects.filter(user_id=user_id, session_id=session_id).delete()
+            ChatSession.objects.filter(user_id=user_id, id=session_id).delete()
+            return Response(
+                {'message': f'Session {session_id} for user {user_id} deleted successfully.', 'deleted_count': deleted_count},
+                status=status.HTTP_200_OK
+            )
+
         deleted_count, _ = ChatMessage.objects.filter(user_id=user_id).delete()
         ChatSession.objects.filter(user_id=user_id).delete()
         return Response(
-            {'message': f'Chat history for user {user_id} deleted successfully.', 'deleted_count': deleted_count},
+            {'message': f'All chat history for user {user_id} deleted successfully.', 'deleted_count': deleted_count},
             status=status.HTTP_200_OK
         )
+
+
+class ChatSessionsView(APIView):
+    """Fetch or delete chat sessions for a specific user for Chat History UI"""
+
+    def get(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id', 'tayasshuk').strip()
+        sessions = ChatSession.objects.filter(user_id=user_id).order_by('-updated_at')
+
+        data = []
+        for s in sessions:
+            messages = s.messages.all().order_by('created_at')
+            count = messages.count()
+            if count == 0:
+                continue
+
+            last_msg = messages.last()
+            has_presc = messages.filter(medicines__isnull=False).exists() or messages.filter(attachment__isnull=False).exclude(attachment='').exists()
+            doc_rec = messages.exclude(doctor_recommendation__isnull=True).exclude(doctor_recommendation='').values_list('doctor_recommendation', flat=True).first()
+
+            data.append({
+                'id': str(s.id),
+                'user_id': s.user_id,
+                'title': s.title or 'Health Consultation',
+                'created_at': s.created_at.isoformat(),
+                'updated_at': s.updated_at.isoformat(),
+                'message_count': count,
+                'last_message': last_msg.text[:75] if last_msg else '',
+                'has_prescription': has_presc,
+                'doctor_recommendation': doc_rec,
+            })
+
+        return Response({'user_id': user_id, 'sessions': data}, status=status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        session_id = request.query_params.get('session_id') or request.data.get('session_id')
+        user_id = request.query_params.get('user_id') or request.data.get('user_id', 'tayasshuk')
+
+        if not session_id:
+            return Response({'error': 'session_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        deleted_msgs, _ = ChatMessage.objects.filter(session_id=session_id, user_id=user_id).delete()
+        deleted_sessions, _ = ChatSession.objects.filter(id=session_id, user_id=user_id).delete()
+        return Response({
+            'message': f'Session {session_id} deleted successfully.',
+            'deleted_messages': deleted_msgs,
+            'deleted_sessions': deleted_sessions,
+        }, status=status.HTTP_200_OK)
 
 
 class ChatDashboardView(APIView):

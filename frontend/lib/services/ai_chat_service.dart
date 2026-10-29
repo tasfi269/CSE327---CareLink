@@ -26,13 +26,41 @@ class AIChatService {
   // Set to true by default to connect to Django API
   static bool useLiveApi = true;
 
-  /// Fetch chat history for a specific user from the backend
-  static Future<List<ChatMessage>> fetchUserHistory({String? userId}) async {
+  /// Fetch list of previous chat sessions for a specific user
+  static Future<List<ChatSessionSummary>> fetchUserSessions({String? userId}) async {
     final uid = userId ?? activeUserId;
     if (!useLiveApi) return [];
 
     try {
-      final uri = Uri.parse('$baseUrl/ai-chat/history/?user_id=$uid');
+      final uri = Uri.parse('$baseUrl/ai-chat/sessions/?user_id=$uid');
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final rawList = data['sessions'] as List? ?? [];
+        return rawList
+            .map((s) => ChatSessionSummary.fromJson(Map<String, dynamic>.from(s)))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint("Failed to fetch sessions from server for $uid: $e");
+    }
+    return [];
+  }
+
+  /// Fetch chat messages for a specific session (or entire user history if sessionId is null)
+  static Future<List<ChatMessage>> fetchUserHistory({
+    String? userId,
+    String? sessionId,
+  }) async {
+    final uid = userId ?? activeUserId;
+    if (!useLiveApi) return [];
+
+    try {
+      final url = sessionId != null
+          ? '$baseUrl/ai-chat/history/?user_id=$uid&session_id=$sessionId'
+          : '$baseUrl/ai-chat/history/?user_id=$uid';
+      final uri = Uri.parse(url);
       final response = await http.get(uri).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
@@ -60,6 +88,7 @@ class AIChatService {
               timestamp: createdAt,
               attachmentPath: m['attachment'],
               isImageAttachment: m['attachment'] != null,
+              sessionId: m['session_id']?.toString() ?? sessionId,
             );
           } else {
             return ChatMessage.assistant(
@@ -67,17 +96,36 @@ class AIChatService {
               medicines: meds,
               doctorRecommendation: m['doctor_recommendation'],
               timestamp: createdAt,
+              sessionId: m['session_id']?.toString() ?? sessionId,
             );
           }
         }).toList();
       }
     } catch (e) {
-      debugPrint("Failed to fetch history from server for $uid: $e");
+      debugPrint("Failed to fetch history from server for $uid (session $sessionId): $e");
     }
     return [];
   }
 
-  /// Clear consultation history for a specific user
+  /// Delete a single chat session and all its messages
+  static Future<bool> deleteSession({
+    required String sessionId,
+    String? userId,
+  }) async {
+    final uid = userId ?? activeUserId;
+    if (!useLiveApi) return true;
+
+    try {
+      final uri = Uri.parse('$baseUrl/ai-chat/sessions/?session_id=$sessionId&user_id=$uid');
+      final response = await http.delete(uri).timeout(const Duration(seconds: 8));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Failed to delete session $sessionId for $uid: $e");
+      return false;
+    }
+  }
+
+  /// Clear all consultation history for a specific user
   static Future<bool> clearUserHistory({String? userId}) async {
     final uid = userId ?? activeUserId;
     if (!useLiveApi) return true;
@@ -92,11 +140,14 @@ class AIChatService {
     }
   }
 
-  /// Send message to AI assistant (text query + optional prescription image) for a specific user
+  /// Send message to AI assistant (text query + optional prescription image)
+  /// If [sessionId] is provided, continues that existing session.
+  /// If [sessionId] is null, backend creates a new session.
   static Future<ChatMessage> sendMessage({
     required String query,
     File? attachment,
     String? userId,
+    String? sessionId,
     List<ChatMessage> conversationHistory = const [],
   }) async {
     final uid = userId ?? activeUserId;
@@ -107,6 +158,9 @@ class AIChatService {
         final request = http.MultipartRequest('POST', uri);
         request.fields['query'] = query;
         request.fields['user_id'] = uid;
+        if (sessionId != null && sessionId.isNotEmpty) {
+          request.fields['session_id'] = sessionId;
+        }
 
         // Pass conversational history for context
         final historyJson = conversationHistory
@@ -142,6 +196,7 @@ class AIChatService {
             text: data['reply'] ?? 'Response received.',
             medicines: meds,
             doctorRecommendation: data['doctor_recommendation'],
+            sessionId: data['session_id']?.toString(),
           );
         }
       } catch (e) {
@@ -159,6 +214,7 @@ class AIChatService {
       return ChatMessage.assistant(
         text:
             "I've analyzed your prescription. Here's a detailed breakdown of each medicine, what it's for, and how many times you should take it:",
+        sessionId: sessionId ?? 'sim_session',
         medicines: [
           MedicineItem(
             name: "Paracetamol 500mg",
@@ -191,6 +247,7 @@ class AIChatService {
       return ChatMessage.assistant(
         text:
             "I'm ready to help evaluate your symptoms! 🩺\n\nPlease share:\n• What main symptoms are you experiencing?\n• When did they begin?\n• Do you have any fever, severe pain, or breathing difficulty?",
+        sessionId: sessionId ?? 'sim_session',
       );
     }
 
@@ -199,6 +256,7 @@ class AIChatService {
         text:
             "Your symptoms may be related to a respiratory infection such as a common cold, flu, or bronchitis. You should consider consulting a Pulmonologist (Chest Specialist) for proper evaluation.",
         doctorRecommendation: "Pulmonologist (Chest Specialist)",
+        sessionId: sessionId ?? 'sim_session',
       );
     }
 
@@ -206,6 +264,7 @@ class AIChatService {
       return ChatMessage.assistant(
         text:
             "In most cases, these symptoms are caused by mild infections and get better with rest and proper care. However, if the fever persists, you have difficulty breathing, or the symptoms worsen, please consult a doctor as soon as possible.",
+        sessionId: sessionId ?? 'sim_session',
       );
     }
 
@@ -214,12 +273,14 @@ class AIChatService {
         text:
             "Based on your symptoms, you should consult a Pulmonologist (Chest Specialist). If you also have ear or throat pain, an ENT Specialist may be appropriate.",
         doctorRecommendation: "Pulmonologist or ENT Specialist",
+        sessionId: sessionId ?? 'sim_session',
       );
     }
 
     return ChatMessage.assistant(
       text:
           "Hello! I am your CareLink AI Health Assistant. I can help analyze your prescriptions, explain dosage instructions, check symptoms, or recommend medical specialists. How can I assist you today?",
+      sessionId: sessionId ?? 'sim_session',
     );
   }
 }
