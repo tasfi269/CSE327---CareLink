@@ -48,13 +48,23 @@ class AIChatView(APIView):
             attachment=image_file,
         )
 
-        # 2. Call AI generation service (Gemini 3.1 Flash)
+        # 2. Fetch recent conversation history from this session for context
+        history_msgs = []
+        if session:
+            prev_qs = session.messages.exclude(id=user_msg.id).order_by('-created_at')[:4]
+            history_msgs = [
+                {'role': m.role, 'text': m.text}
+                for m in reversed(list(prev_qs))
+            ]
+
+        # 3. Call AI generation service (Google Gemini with upgraded clinical prompt)
         ai_result = generate_ai_response(
             query_text=query_text,
             image_file=image_file,
+            history=history_msgs,
         )
 
-        # 3. Record assistant reply in DB under same user_id & session
+        # 4. Record assistant reply in DB under same user_id & session
         bot_msg = ChatMessage.objects.create(
             session=session,
             user_id=user_id,
