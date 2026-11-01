@@ -26,6 +26,48 @@ class AIChatService {
   // Set to true by default to connect to Django API
   static bool useLiveApi = true;
 
+  // Available AI models for dynamic selection
+  static const List<Map<String, String>> availableModels = [
+    {
+      'id': 'gemini-flash-lite-latest',
+      'name': 'Gemini Flash Lite',
+      'badge': 'Fastest • 1.2s',
+      'desc': 'Ultra-low latency for instant clinical triage & prescription parsing',
+    },
+    {
+      'id': 'gemini-3.5-flash-lite',
+      'name': 'Gemini 3.5 Flash Lite',
+      'badge': 'High Accuracy',
+      'desc': 'Advanced multimodal reasoning for complex prescriptions & symptoms',
+    },
+    {
+      'id': 'gemini-3.1-flash-lite',
+      'name': 'Gemini 3.1 Flash',
+      'badge': 'Balanced',
+      'desc': 'Optimal balance of medical reasoning and reliability',
+    },
+    {
+      'id': 'auto',
+      'name': 'Auto (Smart Failover)',
+      'badge': 'Recommended',
+      'desc': 'Automatically routes to the fastest available model with failover',
+    },
+  ];
+
+  static String selectedModel = 'gemini-flash-lite-latest';
+  static String selectedModelName = 'Gemini Flash Lite';
+
+  static void setModel(String modelId) {
+    selectedModel = modelId;
+    for (final m in availableModels) {
+      if (m['id'] == modelId) {
+        selectedModelName = m['name']!;
+        return;
+      }
+    }
+    selectedModelName = modelId;
+  }
+
   /// Fetch list of previous chat sessions for a specific user
   static Future<List<ChatSessionSummary>> fetchUserSessions({String? userId}) async {
     final uid = userId ?? activeUserId;
@@ -148,9 +190,11 @@ class AIChatService {
     File? attachment,
     String? userId,
     String? sessionId,
+    String? model,
     List<ChatMessage> conversationHistory = const [],
   }) async {
     final uid = userId ?? activeUserId;
+    final activeEngine = model ?? selectedModel;
 
     if (useLiveApi) {
       try {
@@ -158,6 +202,7 @@ class AIChatService {
         final request = http.MultipartRequest('POST', uri);
         request.fields['query'] = query;
         request.fields['user_id'] = uid;
+        request.fields['model'] = activeEngine;
         if (sessionId != null && sessionId.isNotEmpty) {
           request.fields['session_id'] = sessionId;
         }
@@ -185,6 +230,15 @@ class AIChatService {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(utf8.decode(response.bodyBytes));
+          if (data['model_used'] != null) {
+            final used = data['model_used'].toString();
+            for (final m in availableModels) {
+              if (m['id'] == used) {
+                selectedModelName = m['name']!;
+                break;
+              }
+            }
+          }
           List<MedicineItem>? meds;
           if (data['medicines'] != null && data['medicines'] is List) {
             meds = (data['medicines'] as List)

@@ -31,6 +31,10 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
   String _activeUserName = 'Tayasshuk Imam';
   String _activeUserId = 'tayasshuk';
 
+  // Dynamic AI Engine / Model Selection
+  String _selectedModel = AIChatService.selectedModel;
+  String _selectedModelName = AIChatService.selectedModelName;
+
   @override
   void initState() {
     super.initState();
@@ -117,10 +121,12 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
         attachment: attachment,
         userId: _activeUserId,
         sessionId: _currentSessionId,
+        model: _selectedModel,
         conversationHistory: _messages,
       );
 
       setState(() {
+        _selectedModelName = AIChatService.selectedModelName;
         _messages.removeWhere((m) => m.isThinking);
         _messages.add(botResponse);
         _isBusy = false;
@@ -269,78 +275,188 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Engine: Google Gemini 3.1 Flash',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primaryDark,
-                            ),
-                          ),
-                          Text(
-                            'Active Patient: $_activeUserName ($activeUserIdTag)',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Active Patient Banner
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Active Patient: $_activeUserName',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ),
+                              Text(
+                                'Profile ID: $activeUserIdTag • Live Session',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Engine Selection Heading
+                  const Row(
+                    children: [
+                      Icon(Icons.psychology_rounded, size: 16, color: AppColors.primaryDark),
+                      SizedBox(width: 6),
+                      Text(
+                        'Select AI Model / Engine:',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Model choices
+                  ...AIChatService.availableModels.map((m) {
+                    final isSelected = _selectedModel == m['id'];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: InkWell(
+                        onTap: () {
+                          setDialogState(() {
+                            _selectedModel = m['id']!;
+                            _selectedModelName = m['name']!;
+                            AIChatService.setModel(m['id']!);
+                          });
+                          setState(() {
+                            _selectedModel = m['id']!;
+                            _selectedModelName = m['name']!;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.secondaryLight.withValues(alpha: 0.45) : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected ? AppColors.primary : AppColors.border,
+                              width: isSelected ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                                size: 18,
+                                color: isSelected ? AppColors.primary : AppColors.textMuted,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          m['name']!,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                            color: isSelected ? AppColors.primaryDark : AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: isSelected ? AppColors.primaryLight : AppColors.userPillBg,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            m['badge']!,
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w700,
+                                              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      m['desc']!,
+                                      style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+
+                  const Divider(height: 20),
+
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Live Backend API',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      AIChatService.useLiveApi
+                          ? 'Connected to Django PostgreSQL database'
+                          : 'Offline Simulation Mode',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                    value: AIChatService.useLiveApi,
+                    activeThumbColor: AppColors.primary,
+                    onChanged: (val) {
+                      setDialogState(() {
+                        AIChatService.useLiveApi = val;
+                      });
+                      setState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Active Endpoint: ${AIChatService.baseUrl}/ai-chat/',
+                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Live Backend API',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  AIChatService.useLiveApi
-                      ? 'Connected to Django PostgreSQL database'
-                      : 'Offline Simulation Mode',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                value: AIChatService.useLiveApi,
-                activeThumbColor: AppColors.primary,
-                onChanged: (val) {
-                  setDialogState(() {
-                    AIChatService.useLiveApi = val;
-                  });
-                  setState(() {});
-                },
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Endpoint: ${AIChatService.baseUrl}/ai-chat/',
-                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-              ),
-            ],
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close', style: TextStyle(color: AppColors.primary)),
+              child: const Text('Done', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -449,11 +565,11 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
                             ),
                           ),
                           const SizedBox(width: 5),
-                          const Flexible(
+                          Flexible(
                             child: Text(
-                              'Online • Gemini 3.1 Flash',
+                              'Online • $_selectedModelName',
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.online,
                                 fontWeight: FontWeight.w600,

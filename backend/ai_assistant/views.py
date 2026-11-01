@@ -57,11 +57,15 @@ class AIChatView(APIView):
                 for m in reversed(list(prev_qs))
             ]
 
-        # 3. Call AI generation service (Google Gemini with upgraded clinical prompt)
+        # 3. Extract preferred AI model if specified by the user
+        preferred_model = request.data.get('model', '').strip()
+
+        # Call AI generation service (Google Gemini with upgraded clinical prompt & preferred engine)
         ai_result = generate_ai_response(
             query_text=query_text,
             image_file=image_file,
             history=history_msgs,
+            preferred_model=preferred_model,
         )
 
         # 4. Record assistant reply in DB under same user_id & session
@@ -80,6 +84,7 @@ class AIChatView(APIView):
             'session_id': str(session.id),
             'session_title': session.title,
             'user_id': user_id,
+            'model_used': ai_result.get('model_used', preferred_model or 'gemini-flash-lite-latest'),
         }
         return Response(response_payload, status=status.HTTP_200_OK)
 

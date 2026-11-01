@@ -76,13 +76,12 @@ You MUST respond with valid, parseable JSON conforming exactly to this structure
 # Prioritized low-latency, high-reliability candidate models with automated failover
 CANDIDATE_MODELS = [
     'gemini-flash-lite-latest',
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
+    'gemini-3.5-flash-lite',
     'gemini-3.1-flash-lite',
     'gemini-flash-latest',
 ]
 
-def generate_ai_response(query_text, image_file=None, history=None):
+def generate_ai_response(query_text, image_file=None, history=None, preferred_model=None):
     """
     Generate an AI clinical response using Google Gemini API with multimodal support,
     strict schema adherence, and multi-model failover.
@@ -126,8 +125,16 @@ def generate_ai_response(query_text, image_file=None, history=None):
         prompt_parts.append(f"Current Patient Inquiry: {user_query_clean}\n\nRespond adhering strictly to the required JSON schema.")
         contents.append("\n".join(prompt_parts))
 
+        # Build model candidate list with user-selected engine prioritized first
+        models_to_try = list(CANDIDATE_MODELS)
+        clean_pref = (preferred_model or "").strip()
+        if clean_pref and clean_pref != 'auto':
+            if clean_pref in models_to_try:
+                models_to_try.remove(clean_pref)
+            models_to_try.insert(0, clean_pref)
+
         last_error = None
-        for model_name in CANDIDATE_MODELS:
+        for model_name in models_to_try:
             try:
                 response = client.models.generate_content(
                     model=model_name,
@@ -148,6 +155,7 @@ def generate_ai_response(query_text, image_file=None, history=None):
                     text_res = '\n'.join(lines).strip()
 
                 parsed = json.loads(text_res)
+                parsed['model_used'] = model_name
                 logger.info(f"Successfully generated response with model: {model_name}")
                 return parsed
             except Exception as model_err:
